@@ -28,8 +28,6 @@ func main() {
 	Must(client.QueueDeclare("test", true, false, false, false, false, nil))
 	fmt.Println("Bind")
 	Must(client.QueueBind("test", "test", "test", false, nil))
-	fmt.Println("Publish 1")
-	Must(client.PublishText(context.Background(), "test", "test", true, false, "test1"))
 
 	consumerConf := lazyAmqp.ConsumerConf{Queue: "test", RetryDelay: time.Second * 60}
 
