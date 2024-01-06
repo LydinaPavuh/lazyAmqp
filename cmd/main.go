@@ -31,12 +31,14 @@ func main() {
 	fmt.Println("Publish 1")
 	Must(client.PublishText(context.Background(), "test", "test", true, false, "test1"))
 
-	consumer := client.CreateConsumer(lazyAmqp.ConsumerConf{Tag: "test", Queue: "test", RetryDelay: time.Second * 60}, func(delivery *amqp.Delivery) {
+	consumerConf := lazyAmqp.ConsumerConf{Queue: "test", RetryDelay: time.Second * 60}
+
+	consumer := client.CreateConsumer(consumerConf, func(delivery *amqp.Delivery) {
 		fmt.Printf("Consumed msg: %s\n", string(delivery.Body))
 		Must(delivery.Ack(false))
 	})
 
-	consumer2 := client.CreateConsumer(lazyAmqp.ConsumerConf{Tag: "test", Queue: "test", RetryDelay: time.Second * 60}, func(delivery *amqp.Delivery) {
+	consumer2 := client.CreateConsumer(consumerConf, func(delivery *amqp.Delivery) {
 		fmt.Printf("Consumed 2 msg: %s\n", string(delivery.Body))
 		Must(delivery.Ack(false))
 	})
