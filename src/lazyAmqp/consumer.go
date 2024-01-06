@@ -30,6 +30,7 @@ type Consumer struct {
 	mustClose bool
 	running   bool
 	mu        sync.Mutex
+	wg        sync.WaitGroup
 }
 
 func newConsumer(conf ConsumerConf, callback DeliveryCallback, client *RmqClient) *Consumer {
@@ -38,19 +39,11 @@ func newConsumer(conf ConsumerConf, callback DeliveryCallback, client *RmqClient
 }
 
 func (consumer *Consumer) Cancel(nowait bool) error {
-	consumer.mu.Lock()
-	defer consumer.mu.Unlock()
-	if consumer.mustClose {
-		return nil
+	if err := consumer.cancel(nowait); err != nil {
+		return err
 	}
-	consumer.mustClose = true
-	if consumer.running {
-		if consumer.channel != nil && consumer.channel.IsOpen() {
-			err := consumer.channel.Cancel(consumer.config.Tag, nowait)
-			if err != nil {
-				return err
-			}
-		}
+	if !nowait {
+		consumer.wg.Wait()
 	}
 	return nil
 }
@@ -60,8 +53,8 @@ func (consumer *Consumer) Run() error {
 	if err != nil {
 		return err
 	}
+	defer consumer.setInactive()
 	consumer.run()
-	consumer.setInactive()
 	return nil
 }
 
@@ -71,8 +64,8 @@ func (consumer *Consumer) RunAsync() error {
 		return err
 	}
 	go func() {
+		defer consumer.setInactive()
 		consumer.run()
-		consumer.setInactive()
 	}()
 	return nil
 }
@@ -81,7 +74,7 @@ func (consumer *Consumer) run() {
 	for !consumer.mustClose {
 		err := consumer.consume()
 		if err != nil {
-			fmt.Printf("Error on consume %s, retry after %d", err, consumer.config.RetryDelay)
+			fmt.Printf("Error on consume %s, retry after %d\n", err, consumer.config.RetryDelay)
 			time.Sleep(consumer.config.RetryDelay)
 		}
 	}
@@ -89,10 +82,10 @@ func (consumer *Consumer) run() {
 
 func (consumer *Consumer) consume() (err error) {
 	consumer.channel, err = consumer.client.chanPool.Get()
-	defer consumer.client.chanPool.Put(consumer.channel)
 	if err != nil {
 		return err
 	}
+	defer consumer.client.chanPool.Put(consumer.channel)
 	err = consumer.channel.SetQos(consumer.config.PrefetchCount, consumer.config.PrefetchSize)
 	if err != nil {
 		return err
@@ -131,6 +124,7 @@ func (consumer *Consumer) setRunning() error {
 	}
 	consumer.mustClose = false
 	consumer.running = true
+	consumer.wg.Add(1)
 	return nil
 }
 
@@ -139,4 +133,23 @@ func (consumer *Consumer) setInactive() {
 	defer consumer.mu.Unlock()
 	consumer.running = false
 	consumer.channel = nil
+	consumer.wg.Done()
+}
+
+func (consumer *Consumer) cancel(nowait bool) error {
+	consumer.mu.Lock()
+	defer consumer.mu.Unlock()
+	if consumer.mustClose {
+		return nil
+	}
+	consumer.mustClose = true
+	if consumer.running {
+		if consumer.channel != nil && consumer.channel.IsOpen() {
+			err := consumer.channel.Cancel(consumer.config.Tag, nowait)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

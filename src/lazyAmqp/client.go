@@ -37,6 +37,9 @@ func (client *RmqClient) Close() error {
 	if err := client.stopAllConsumers(); err != nil {
 		return err
 	}
+	if err := client.chanPool.Discard(); err != nil {
+		return err
+	}
 	return client.conn.Close()
 }
 func (client *RmqClient) stopAllConsumers() error {

@@ -9,7 +9,7 @@ type channelMap map[uuid.UUID]*RmqChannel
 
 type ChannelPool struct {
 	maxSize       uint16
-	readyChannels channelMap
+	readyChannels []*RmqChannel
 	allChannels   channelMap
 	connection    *RmqConnection
 	r_mu          *sync.Mutex
@@ -18,12 +18,11 @@ type ChannelPool struct {
 
 func NewPool(conn *RmqConnection, size uint16) *ChannelPool {
 	return &ChannelPool{
-		connection:    conn,
-		maxSize:       size,
-		allChannels:   make(channelMap),
-		readyChannels: make(channelMap),
-		r_mu:          &sync.Mutex{},
-		a_mu:          &sync.RWMutex{},
+		connection:  conn,
+		maxSize:     size,
+		allChannels: make(channelMap),
+		r_mu:        &sync.Mutex{},
+		a_mu:        &sync.RWMutex{},
 	}
 }
 
@@ -52,7 +51,7 @@ func (pool *ChannelPool) Put(ch *RmqChannel) {
 		panic("Unknown channel put")
 	}
 	pool.r_mu.Lock()
-	pool.readyChannels[ch.Id] = ch
+	pool.readyChannels = append(pool.readyChannels, ch)
 	pool.r_mu.Unlock()
 }
 
@@ -73,10 +72,24 @@ func (pool *ChannelPool) openNewChannel() (*RmqChannel, error) {
 func (pool *ChannelPool) popFirstChan() *RmqChannel {
 	pool.r_mu.Lock()
 	defer pool.r_mu.Unlock()
-	for k := range pool.readyChannels {
-		ch := pool.readyChannels[k]
-		delete(pool.readyChannels, k)
-		return ch
+	if len(pool.readyChannels) == 0 {
+		return nil
 	}
+	ch := pool.readyChannels[0]
+	pool.readyChannels = pool.readyChannels[1:]
+	return ch
+}
+
+func (pool *ChannelPool) Discard() error {
+	pool.r_mu.Lock()
+	defer pool.r_mu.Unlock()
+	for k := range pool.allChannels {
+		ch := pool.allChannels[k]
+		delete(pool.allChannels, k)
+		if err := ch.close(); err != nil {
+			return err
+		}
+	}
+	clear(pool.readyChannels)
 	return nil
 }

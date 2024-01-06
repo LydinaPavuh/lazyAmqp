@@ -29,7 +29,7 @@ func main() {
 	fmt.Println("Bind")
 	Must(client.QueueBind("test", "test", "test", false, nil))
 
-	consumerConf := lazyAmqp.ConsumerConf{Queue: "test", RetryDelay: time.Second * 60}
+	consumerConf := lazyAmqp.ConsumerConf{Queue: "test", RetryDelay: time.Second}
 
 	consumer := client.CreateConsumer(consumerConf, func(delivery *amqp.Delivery) {
 		fmt.Printf("Consumed msg: %s\n", string(delivery.Body))
@@ -46,8 +46,8 @@ func main() {
 
 	for i := 0; i < 1000; i++ {
 		time.Sleep(time.Second)
-		fmt.Println("Publish")
-		Must(client.PublishText(context.Background(), "test", "test", true, false, fmt.Sprintf("test_r_%d", i)))
+		err := client.PublishText(context.Background(), "test", "test", true, false, fmt.Sprintf("test_r_%d", i))
+		fmt.Printf("Publish %s\n", err)
 	}
 	Must(consumer.Cancel(false))
 	Must(consumer2.Cancel(false))
