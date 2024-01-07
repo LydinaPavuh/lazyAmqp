@@ -2,8 +2,10 @@ package lazyAmqp
 
 import (
 	"errors"
+	"fmt"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"log/slog"
 	"sync"
 )
 
@@ -27,6 +29,11 @@ func (conn *RmqConnection) Open() (err error) {
 		return nil
 	}
 	conn.origConn, err = amqp.DialConfig(conn.conf.Url, conn.conf.Config)
+	if err == nil {
+		slog.Info("Connected to broker", slog.Any("host", conn.origConn.RemoteAddr()))
+	} else {
+		slog.Error(fmt.Sprintf("Error on to broker %s", err), slog.Any("error", err))
+	}
 	return err
 }
 
@@ -42,11 +49,17 @@ func (conn *RmqConnection) Close() error {
 	return nil
 }
 
-func (conn *RmqConnection) newChannel() (*RmqChannel, error) {
+func (conn *RmqConnection) checkConnection() error {
 	if !conn.isOpen() {
-		if err := conn.Open(); err != nil {
-			return nil, err
-		}
+		slog.Info("Connection to broker lost, try reconnect", slog.Any("host", conn.origConn.RemoteAddr()))
+		return conn.Open()
+	}
+	return nil
+}
+
+func (conn *RmqConnection) newChannel() (*RmqChannel, error) {
+	if err := conn.checkConnection(); err != nil {
+		return nil, err
 	}
 	rawChan, err := conn.origConn.Channel()
 	if err != nil {

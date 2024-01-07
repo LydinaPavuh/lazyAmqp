@@ -18,7 +18,6 @@ func main() {
 	conf := lazyAmqp.RmqClientConf{
 		Url: "amqp://rmuser:rmpassword@127.0.0.1:5672",
 	}
-
 	fmt.Println("Connect")
 	client, err := lazyAmqp.NewClient(&conf)
 	Must(err)

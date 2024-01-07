@@ -3,6 +3,7 @@ package lazyAmqp
 import (
 	"fmt"
 	"github.com/rabbitmq/amqp091-go"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -74,7 +75,10 @@ func (consumer *Consumer) run() {
 	for !consumer.mustClose {
 		err := consumer.consume()
 		if err != nil {
-			fmt.Printf("Error on consume %s, retry after %d\n", err, consumer.config.RetryDelay)
+			slog.Error(
+				fmt.Sprintf("Error on consume: %s, retry after %d", err, consumer.config.RetryDelay),
+				slog.Any("error", err),
+			)
 			time.Sleep(consumer.config.RetryDelay)
 		}
 	}
@@ -111,6 +115,7 @@ func (consumer *Consumer) consume() (err error) {
 		if !ok {
 			return err
 		}
+		slog.Debug("Receive message", slog.String("messageId", msg.MessageId))
 		consumer.callback(&msg)
 	}
 	return nil

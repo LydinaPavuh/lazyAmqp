@@ -2,6 +2,7 @@ package lazyAmqp
 
 import (
 	"github.com/google/uuid"
+	"log/slog"
 	"sync"
 )
 
@@ -30,12 +31,14 @@ func (pool *ChannelPool) Get() (*RmqChannel, error) {
 	var err error = nil
 	channel := pool.popFirstChan()
 	if channel == nil {
+		slog.Debug("Pool is empty, create new channel")
 		channel, err = pool.openNewChannel()
 		if err != nil {
 			return nil, err
 		}
 	}
 	if !channel.IsOpen() {
+		slog.Debug("Channel is closed try reopen")
 		if err := channel.renew(); err != nil {
 			return nil, err
 		}
