@@ -2,10 +2,8 @@ package internal
 
 import (
 	"context"
-	"encoding/json"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/common"
 	"sync"
 )
 
@@ -25,8 +23,8 @@ type IChannel interface {
 	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait, passive bool, args amqp.Table) error
 	ExchangeDelete(name string, ifUnused, noWait bool) error
 	PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
-	PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error
-	PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error
+	//PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error
+	//PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error
 	Get(queue string, autoAck bool) (amqp.Delivery, bool, error)
 	SetQos(prefetchCount int, prefetchSize int) error
 	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
@@ -112,27 +110,6 @@ func (channel *RmqChannel) ExchangeDelete(name string, ifUnused, noWait bool) er
 }
 
 func (channel *RmqChannel) PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error {
-	return channel.origChan.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
-}
-
-func (channel *RmqChannel) PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error {
-	msg := amqp.Publishing{
-		Body:        []byte(text),
-		ContentType: common.MimeTextUtf8,
-	}
-	return channel.origChan.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
-}
-
-func (channel *RmqChannel) PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error {
-	jsonData, err := json.Marshal(obj)
-	if err != nil {
-		return err
-	}
-
-	msg := amqp.Publishing{
-		Body:        jsonData,
-		ContentType: common.MimeApplicationJson,
-	}
 	return channel.origChan.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 

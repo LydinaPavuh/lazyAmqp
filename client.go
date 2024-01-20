@@ -2,6 +2,7 @@ package lazyAmqp
 
 import (
 	"context"
+	"encoding/json"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"lazyAmqp/common"
@@ -64,7 +65,24 @@ func (client *RmqClient) PublishText(ctx context.Context, exchange, key string, 
 		return err
 	}
 	defer client.chanPool.Remove(ch)
-	return ch.PublishText(ctx, exchange, key, mandatory, immediate, text)
+	msg := amqp.Publishing{
+		Body:        []byte(text),
+		ContentType: common.MimeTextUtf8,
+	}
+	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
+}
+
+func (client *RmqClient) PublishBinary(ctx context.Context, exchange, key string, mandatory, immediate bool, data []byte) error {
+	ch, err := client.chanPool.Get()
+	if err != nil {
+		return err
+	}
+	defer client.chanPool.Remove(ch)
+	msg := amqp.Publishing{
+		Body:        data,
+		ContentType: common.MimeOctetStream,
+	}
+	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
 func (client *RmqClient) PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error {
@@ -73,7 +91,16 @@ func (client *RmqClient) PublishJson(ctx context.Context, exchange, key string, 
 		return err
 	}
 	defer client.chanPool.Remove(ch)
-	return ch.PublishJson(ctx, exchange, key, mandatory, immediate, obj)
+
+	jsonData, err := json.Marshal(obj)
+	if err != nil {
+		return err
+	}
+	msg := amqp.Publishing{
+		Body:        jsonData,
+		ContentType: common.MimeApplicationJson,
+	}
+	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
 func (client *RmqClient) QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, passive bool, args amqp.Table) error {
