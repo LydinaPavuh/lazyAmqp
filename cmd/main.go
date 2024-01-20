@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/src/lazyAmqp"
+	"lazyAmqp"
+	"lazyAmqp/common"
 	"time"
 )
 
@@ -15,7 +16,7 @@ func Must(err error) {
 }
 
 func main() {
-	conf := lazyAmqp.RmqClientConf{
+	conf := common.RmqConfig{
 		Url: "amqp://rmuser:rmpassword@127.0.0.1:5672",
 	}
 	fmt.Println("Connect")
@@ -28,7 +29,7 @@ func main() {
 	fmt.Println("Bind")
 	Must(client.QueueBind("test", "test", "test", false, nil))
 
-	consumerConf := lazyAmqp.ConsumerConf{Queue: "test", RetryDelay: time.Second}
+	consumerConf := common.ConsumerConf{Queue: "test", RetryDelay: time.Second}
 
 	consumer := client.CreateConsumer(consumerConf, func(delivery *amqp.Delivery) {
 		fmt.Printf("Consumed msg: %s\n", string(delivery.Body))
@@ -48,7 +49,7 @@ func main() {
 		err := client.PublishText(context.Background(), "test", "test", true, false, fmt.Sprintf("test_r_%d", i))
 		fmt.Printf("Publish %s\n", err)
 	}
-	Must(consumer.Cancel(false))
-	Must(consumer2.Cancel(false))
+	consumer.Cancel(false)
+	consumer2.Cancel(false)
 	Must(client.Close())
 }

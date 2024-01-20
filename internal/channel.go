@@ -1,12 +1,37 @@
-package lazyAmqp
+package internal
 
 import (
 	"context"
 	"encoding/json"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"lazyAmqp/common"
 	"sync"
 )
+
+type IChannelFactory interface {
+	New() (IChannel, error)
+	Renew(channel IChannel) error
+}
+
+type IChannel interface {
+	GetId() uuid.UUID
+	IsOpen() bool
+	Close() error
+	QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, passive bool, args amqp.Table) error
+	QueueBind(name, key, exchange string, noWait bool, args amqp.Table) error
+	QueueDelete(name string, ifUnused, ifEmpty, noWait bool) error
+	QueueUnbind(name, key, exchange string, args amqp.Table) error
+	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait, passive bool, args amqp.Table) error
+	ExchangeDelete(name string, ifUnused, noWait bool) error
+	PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
+	PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error
+	PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error
+	Get(queue string, autoAck bool) (amqp.Delivery, bool, error)
+	SetQos(prefetchCount int, prefetchSize int) error
+	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
+	Cancel(consumer string, noWait bool) error
+}
 
 type RmqChannel struct {
 	origChan *amqp.Channel
@@ -15,17 +40,37 @@ type RmqChannel struct {
 	mu       *sync.Mutex
 }
 
+type RmqChannelFactory struct {
+	connection *RmqConnection
+}
+
+func NewRmqChannelFactory(connection *RmqConnection) *RmqChannelFactory {
+	return &RmqChannelFactory{connection: connection}
+}
+
+// RmqChannelFactory Methods
+
+func (factory RmqChannelFactory) New() (IChannel, error) {
+	return factory.connection.NewChannel()
+}
+
+func (factory RmqChannelFactory) Renew(channel IChannel) error {
+	ch := channel.(*RmqChannel)
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	return factory.connection.renewChannel(ch)
+}
+
+// RmqChannel Methods
+
+func (channel *RmqChannel) GetId() uuid.UUID {
+	return channel.Id
+}
 func (channel *RmqChannel) IsOpen() bool {
 	return channel.origChan != nil && !channel.origChan.IsClosed()
 }
 
-func (channel *RmqChannel) renew() error {
-	channel.mu.Lock()
-	defer channel.mu.Unlock()
-	return channel.conn.renewChannel(channel)
-}
-
-func (channel *RmqChannel) close() error {
+func (channel *RmqChannel) Close() error {
 	channel.mu.Lock()
 	defer channel.mu.Unlock()
 	return channel.origChan.Close()
@@ -73,7 +118,7 @@ func (channel *RmqChannel) PublishWithContext(ctx context.Context, exchange, key
 func (channel *RmqChannel) PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error {
 	msg := amqp.Publishing{
 		Body:        []byte(text),
-		ContentType: MimeTextUtf8,
+		ContentType: common.MimeTextUtf8,
 	}
 	return channel.origChan.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
@@ -83,9 +128,10 @@ func (channel *RmqChannel) PublishJson(ctx context.Context, exchange, key string
 	if err != nil {
 		return err
 	}
+
 	msg := amqp.Publishing{
 		Body:        jsonData,
-		ContentType: MimeApplicationJson,
+		ContentType: common.MimeApplicationJson,
 	}
 	return channel.origChan.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }

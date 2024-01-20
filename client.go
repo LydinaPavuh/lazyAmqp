@@ -4,25 +4,33 @@ import (
 	"context"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"lazyAmqp/common"
+	"lazyAmqp/internal"
 	"sync"
 )
 
 type RmqClient struct {
-	conf      *RmqClientConf
-	conn      *RmqConnection
-	chanPool  *ChannelPool
+	conf      *common.RmqConfig
+	conn      *internal.RmqConnection
+	chanPool  *internal.ChannelPool
 	consumers map[string]*Consumer
 	mu        sync.Mutex
 }
 
-func NewClient(conf *RmqClientConf) (*RmqClient, error) {
-	client := &RmqClient{conf: conf, conn: NewConn(conf), consumers: make(map[string]*Consumer), mu: sync.Mutex{}}
-	client.chanPool = NewPool(client.conn, 65535)
+func NewClient(conf *common.RmqConfig) (*RmqClient, error) {
+	conn := internal.NewConn(conf)
+	client := &RmqClient{
+		conf:      conf,
+		conn:      conn,
+		chanPool:  internal.NewPool(internal.NewRmqChannelFactory(conn), 65535),
+		consumers: make(map[string]*Consumer),
+		mu:        sync.Mutex{},
+	}
 	return client, client.Connect()
 }
 
 func (client *RmqClient) isOpen() bool {
-	return !client.conn.isOpen()
+	return !client.conn.IsOpen()
 }
 
 func (client *RmqClient) Connect() error {
@@ -45,9 +53,7 @@ func (client *RmqClient) Close() error {
 func (client *RmqClient) stopAllConsumers() error {
 	for k := range client.consumers {
 		consumer := client.consumers[k]
-		if err := consumer.Cancel(false); err != nil {
-			return err
-		}
+		consumer.Cancel(false)
 	}
 	return nil
 }
@@ -57,7 +63,7 @@ func (client *RmqClient) PublishText(ctx context.Context, exchange, key string, 
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.PublishText(ctx, exchange, key, mandatory, immediate, text)
 }
 
@@ -66,7 +72,7 @@ func (client *RmqClient) PublishJson(ctx context.Context, exchange, key string, 
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.PublishJson(ctx, exchange, key, mandatory, immediate, obj)
 }
 
@@ -75,7 +81,7 @@ func (client *RmqClient) QueueDeclare(name string, durable, autoDelete, exclusiv
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.QueueDeclare(name, durable, autoDelete, exclusive, noWait, passive, args)
 }
 
@@ -84,7 +90,7 @@ func (client *RmqClient) QueueBind(name, key, exchange string, noWait bool, args
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.QueueBind(name, key, exchange, noWait, args)
 }
 
@@ -93,7 +99,7 @@ func (client *RmqClient) QueueDelete(name string, ifUnused, ifEmpty, noWait bool
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.QueueDelete(name, ifUnused, ifEmpty, noWait)
 }
 
@@ -102,7 +108,7 @@ func (client *RmqClient) QueueUnbind(name, key, exchange string, args amqp.Table
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.QueueUnbind(name, key, exchange, args)
 }
 
@@ -111,7 +117,7 @@ func (client *RmqClient) ExchangeDeclare(name, kind string, durable, autoDelete,
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.ExchangeDeclare(name, kind, durable, autoDelete, internal, noWait, passive, args)
 }
 
@@ -120,7 +126,7 @@ func (client *RmqClient) ExchangeDelete(name string, ifUnused, noWait bool) erro
 	if err != nil {
 		return err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.ExchangeDelete(name, ifUnused, noWait)
 }
 
@@ -129,28 +135,25 @@ func (client *RmqClient) Get(queue string, autoAck bool) (amqp.Delivery, bool, e
 	if err != nil {
 		return amqp.Delivery{}, false, err
 	}
-	defer client.chanPool.Put(ch)
+	defer client.chanPool.Remove(ch)
 	return ch.Get(queue, autoAck)
 }
 
-func (client *RmqClient) CreateConsumer(conf ConsumerConf, callback DeliveryCallback) *Consumer {
+func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback DeliveryCallback) *Consumer {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	if conf.Tag == "" {
 		conf.Tag = uuid.NewString()
 	}
-	consumer := newConsumer(conf, callback, client)
-	client.consumers[conf.Tag] = consumer
-	return consumer
+	consumerObj := newConsumer(conf, callback, client.chanPool)
+	client.consumers[conf.Tag] = consumerObj
+	return consumerObj
 }
 
 func (client *RmqClient) RemoveConsumer(consumer *Consumer) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	err := consumer.Cancel(false)
-	if err != nil {
-		return err
-	}
-	delete(client.consumers, consumer.config.Tag)
+	consumer.Cancel(false)
+	delete(client.consumers, consumer.GetTag())
 	return nil
 }

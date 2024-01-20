@@ -1,4 +1,4 @@
-package lazyAmqp
+package common
 
 import (
 	"errors"

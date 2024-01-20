@@ -1,33 +1,34 @@
-package lazyAmqp
+package internal
 
 import (
 	"github.com/google/uuid"
+	"lazyAmqp/common"
 	"log/slog"
 	"sync"
 )
 
-type channelMap map[uuid.UUID]*RmqChannel
+type channelMap map[uuid.UUID]IChannel
 
 type ChannelPool struct {
 	maxSize       uint16
-	readyChannels []*RmqChannel
+	readyChannels []IChannel
 	allChannels   channelMap
-	connection    *RmqConnection
+	factory       IChannelFactory
 	r_mu          *sync.Mutex
 	a_mu          *sync.RWMutex
 }
 
-func NewPool(conn *RmqConnection, size uint16) *ChannelPool {
+func NewPool(factory IChannelFactory, capacity uint16) *ChannelPool {
 	return &ChannelPool{
-		connection:  conn,
-		maxSize:     size,
+		factory:     factory,
+		maxSize:     capacity,
 		allChannels: make(channelMap),
 		r_mu:        &sync.Mutex{},
 		a_mu:        &sync.RWMutex{},
 	}
 }
 
-func (pool *ChannelPool) Get() (*RmqChannel, error) {
+func (pool *ChannelPool) Get() (IChannel, error) {
 	var err error = nil
 	channel := pool.popFirstChan()
 	if channel == nil {
@@ -38,17 +39,17 @@ func (pool *ChannelPool) Get() (*RmqChannel, error) {
 		}
 	}
 	if !channel.IsOpen() {
-		slog.Debug("Channel is closed try reopen")
-		if err := channel.renew(); err != nil {
+		slog.Debug("Chanel is closed try reopen")
+		if err := pool.factory.Renew(channel); err != nil {
 			return nil, err
 		}
 	}
 	return channel, err
 }
 
-func (pool *ChannelPool) Put(ch *RmqChannel) {
+func (pool *ChannelPool) Remove(ch IChannel) {
 	pool.a_mu.RLock()
-	_, ok := pool.allChannels[ch.Id]
+	_, ok := pool.allChannels[ch.GetId()]
 	pool.a_mu.RUnlock()
 	if !ok {
 		panic("Unknown channel put")
@@ -58,21 +59,21 @@ func (pool *ChannelPool) Put(ch *RmqChannel) {
 	pool.r_mu.Unlock()
 }
 
-func (pool *ChannelPool) openNewChannel() (*RmqChannel, error) {
+func (pool *ChannelPool) openNewChannel() (IChannel, error) {
 	pool.a_mu.Lock()
 	defer pool.a_mu.Unlock()
 	if uint16(len(pool.allChannels)) >= pool.maxSize {
-		return nil, PoolLimitReached
+		return nil, common.PoolLimitReached
 	}
-	ch, err := pool.connection.newChannel()
+	ch, err := pool.factory.New()
 	if err != nil {
 		return ch, err
 	}
-	pool.allChannels[ch.Id] = ch
+	pool.allChannels[ch.GetId()] = ch
 	return ch, nil
 }
 
-func (pool *ChannelPool) popFirstChan() *RmqChannel {
+func (pool *ChannelPool) popFirstChan() IChannel {
 	pool.r_mu.Lock()
 	defer pool.r_mu.Unlock()
 	if len(pool.readyChannels) == 0 {
@@ -89,10 +90,18 @@ func (pool *ChannelPool) Discard() error {
 	for k := range pool.allChannels {
 		ch := pool.allChannels[k]
 		delete(pool.allChannels, k)
-		if err := ch.close(); err != nil {
+		if err := ch.Close(); err != nil {
 			return err
 		}
 	}
 	clear(pool.readyChannels)
 	return nil
+}
+
+func (pool *ChannelPool) Size() int {
+	return len(pool.allChannels)
+}
+
+func (pool *ChannelPool) ReadyCount() int {
+	return len(pool.readyChannels)
 }

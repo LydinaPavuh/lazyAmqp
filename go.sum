@@ -1,3 +1,5 @@
+github.com/LydinaPavuh/signal v1.0.0 h1:XNzqVmRQJy1KCIpouUdZfLN38nutrjH6Lz+5bibdJDM=
+github.com/LydinaPavuh/signal v1.0.0/go.mod h1:1jORWMPnGkQsoOUgV1SNqM+SjiZ+8nzfqSQif+99Bi4=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/google/uuid v1.5.0 h1:1p67kYwdtXjb0gL0BPiP1Av9wiZPo5A8z2cWkTZ+eyU=
