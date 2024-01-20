@@ -47,6 +47,7 @@ func (conn *RmqConnection) Close() error {
 		}
 		return err
 	}
+
 	return nil
 }
 

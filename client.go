@@ -10,6 +10,8 @@ import (
 	"sync"
 )
 
+// RmqClient
+// Rabbitmq client opens and maintains the connection automatically restores it in case disconnection
 type RmqClient struct {
 	conf      *common.RmqConfig
 	conn      *internal.RmqConnection
@@ -30,16 +32,19 @@ func NewClient(conf *common.RmqConfig) (*RmqClient, error) {
 	return client, client.Connect()
 }
 
+// Return true if connection is closed
 func (client *RmqClient) isOpen() bool {
 	return !client.conn.IsOpen()
 }
 
+// Connect Open new connection
 func (client *RmqClient) Connect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	return client.conn.Open()
 }
 
+// Close cancel all consumers and close active connections
 func (client *RmqClient) Close() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -51,14 +56,17 @@ func (client *RmqClient) Close() error {
 	}
 	return client.conn.Close()
 }
+
 func (client *RmqClient) stopAllConsumers() error {
 	for k := range client.consumers {
 		consumer := client.consumers[k]
 		consumer.Cancel(false)
 	}
+	clear(client.consumers)
 	return nil
 }
 
+// PublishText publish string message
 func (client *RmqClient) PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -72,6 +80,7 @@ func (client *RmqClient) PublishText(ctx context.Context, exchange, key string, 
 	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
+// PublishBinary publish binary message
 func (client *RmqClient) PublishBinary(ctx context.Context, exchange, key string, mandatory, immediate bool, data []byte) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -85,6 +94,7 @@ func (client *RmqClient) PublishBinary(ctx context.Context, exchange, key string
 	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
+// PublishJson publish json object
 func (client *RmqClient) PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -103,6 +113,7 @@ func (client *RmqClient) PublishJson(ctx context.Context, exchange, key string, 
 	return ch.PublishWithContext(ctx, exchange, key, mandatory, immediate, msg)
 }
 
+// QueueDeclare declare new queue
 func (client *RmqClient) QueueDeclare(name string, durable, autoDelete, exclusive, noWait bool, passive bool, args amqp.Table) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -112,6 +123,7 @@ func (client *RmqClient) QueueDeclare(name string, durable, autoDelete, exclusiv
 	return ch.QueueDeclare(name, durable, autoDelete, exclusive, noWait, passive, args)
 }
 
+// QueueBind bind queue to exchange
 func (client *RmqClient) QueueBind(name, key, exchange string, noWait bool, args amqp.Table) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -121,6 +133,7 @@ func (client *RmqClient) QueueBind(name, key, exchange string, noWait bool, args
 	return ch.QueueBind(name, key, exchange, noWait, args)
 }
 
+// QueueDelete delete queue
 func (client *RmqClient) QueueDelete(name string, ifUnused, ifEmpty, noWait bool) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -130,6 +143,7 @@ func (client *RmqClient) QueueDelete(name string, ifUnused, ifEmpty, noWait bool
 	return ch.QueueDelete(name, ifUnused, ifEmpty, noWait)
 }
 
+// QueueUnbind Unbind queue from exchange
 func (client *RmqClient) QueueUnbind(name, key, exchange string, args amqp.Table) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -139,6 +153,7 @@ func (client *RmqClient) QueueUnbind(name, key, exchange string, args amqp.Table
 	return ch.QueueUnbind(name, key, exchange, args)
 }
 
+// ExchangeDeclare declare new exchange
 func (client *RmqClient) ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait, passive bool, args amqp.Table) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -148,6 +163,7 @@ func (client *RmqClient) ExchangeDeclare(name, kind string, durable, autoDelete,
 	return ch.ExchangeDeclare(name, kind, durable, autoDelete, internal, noWait, passive, args)
 }
 
+// ExchangeDelete delete exchange
 func (client *RmqClient) ExchangeDelete(name string, ifUnused, noWait bool) error {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -157,6 +173,7 @@ func (client *RmqClient) ExchangeDelete(name string, ifUnused, noWait bool) erro
 	return ch.ExchangeDelete(name, ifUnused, noWait)
 }
 
+// Get simple message from queue
 func (client *RmqClient) Get(queue string, autoAck bool) (amqp.Delivery, bool, error) {
 	ch, err := client.chanPool.Get()
 	if err != nil {
@@ -166,6 +183,7 @@ func (client *RmqClient) Get(queue string, autoAck bool) (amqp.Delivery, bool, e
 	return ch.Get(queue, autoAck)
 }
 
+// CreateConsumer Create new consumer
 func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback DeliveryCallback) *Consumer {
 	client.mu.Lock()
 	defer client.mu.Unlock()
@@ -177,6 +195,7 @@ func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback Deliv
 	return consumerObj
 }
 
+// RemoveConsumer Cancel and remove consumer
 func (client *RmqClient) RemoveConsumer(consumer *Consumer) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
