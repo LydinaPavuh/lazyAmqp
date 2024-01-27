@@ -20,8 +20,8 @@ func main() {
 		Url: "amqp://rmuser:rmpassword@127.0.0.1:5672",
 	}
 	fmt.Println("Connect")
-	client, err := lazyAmqp.NewClient(&conf)
-	Must(err)
+	client := lazyAmqp.NewClient(&conf)
+	Must(client.Connect())
 	fmt.Println("Exchange declare")
 	Must(client.ExchangeDeclare("test", "fanout", true, false, false, false, false, nil))
 	fmt.Println("Queue declare")
