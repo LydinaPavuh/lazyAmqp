@@ -22,7 +22,7 @@ type RmqClient struct {
 	mu        sync.Mutex
 }
 
-func NewClient(conf *common.RmqConfig) (*RmqClient, error) {
+func NewClient(conf *common.RmqConfig) *RmqClient {
 	conn := connection.NewConn(conf)
 	client := &RmqClient{
 		conf:      conf,
@@ -31,7 +31,7 @@ func NewClient(conf *common.RmqConfig) (*RmqClient, error) {
 		consumers: make(map[string]*consumer.Consumer),
 		mu:        sync.Mutex{},
 	}
-	return client, client.Connect()
+	return client
 }
 
 // Return true if connection is closed
