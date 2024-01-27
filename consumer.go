@@ -3,7 +3,6 @@ package lazyAmqp
 import (
 	"fmt"
 	"github.com/LydinaPavuh/lazyAmqp/common"
-	"github.com/LydinaPavuh/lazyAmqp/internal"
 	"github.com/LydinaPavuh/signal"
 	"github.com/rabbitmq/amqp091-go"
 	"log/slog"
@@ -12,8 +11,8 @@ import (
 )
 
 type IConsumerChannelFactory interface {
-	Get() (internal.IChannel, error)
-	Remove(channel internal.IChannel)
+	Get() (IChannel, error)
+	Remove(channel IChannel)
 }
 
 type DeliveryCallback func(delivery *amqp091.Delivery)

@@ -1,11 +1,11 @@
-package internal
+package lazyAmqp
 
 import (
 	"errors"
 	"fmt"
+	"github.com/LydinaPavuh/lazyAmqp/common"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/common"
 	"log/slog"
 	"sync"
 )

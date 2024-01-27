@@ -1,8 +1,8 @@
-package internal
+package lazyAmqp
 
 import (
+	"github.com/LydinaPavuh/lazyAmqp/common"
 	"github.com/google/uuid"
-	"lazyAmqp/common"
 	"log/slog"
 	"sync"
 )
