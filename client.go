@@ -3,10 +3,10 @@ package lazyAmqp
 import (
 	"context"
 	"encoding/json"
+	"github.com/LydinaPavuh/lazyAmqp/common"
+	"github.com/LydinaPavuh/lazyAmqp/internal"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/common"
-	"lazyAmqp/internal"
 	"sync"
 )
 

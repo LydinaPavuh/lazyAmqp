@@ -3,9 +3,9 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/LydinaPavuh/lazyAmqp"
+	"github.com/LydinaPavuh/lazyAmqp/common"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp"
-	"lazyAmqp/common"
 	"time"
 )
 

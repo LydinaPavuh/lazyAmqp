@@ -2,10 +2,10 @@ package lazyAmqp
 
 import (
 	"fmt"
+	"github.com/LydinaPavuh/lazyAmqp/common"
+	"github.com/LydinaPavuh/lazyAmqp/internal"
 	"github.com/LydinaPavuh/signal"
 	"github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/common"
-	"lazyAmqp/internal"
 	"log/slog"
 	"sync"
 	"time"

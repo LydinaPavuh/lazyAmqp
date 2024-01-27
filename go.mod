@@ -1,4 +1,4 @@
-module lazyAmqp
+module github.com/LydinaPavuh/lazyAmqp
 
 go 1.21.5
 
