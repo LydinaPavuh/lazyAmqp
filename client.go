@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/LydinaPavuh/lazyAmqp/common"
-	"github.com/LydinaPavuh/lazyAmqp/internal"
+	"github.com/LydinaPavuh/lazyAmqp/connection"
+	"github.com/LydinaPavuh/lazyAmqp/consumer"
+	"github.com/LydinaPavuh/lazyAmqp/pool"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"sync"
@@ -14,19 +16,19 @@ import (
 // Rabbitmq client opens and maintains the connection automatically restores it in case disconnection
 type RmqClient struct {
 	conf      *common.RmqConfig
-	conn      *internal.RmqConnection
-	chanPool  *internal.ChannelPool
-	consumers map[string]*Consumer
+	conn      *connection.RmqConnection
+	chanPool  *pool.ChannelPool
+	consumers map[string]*consumer.Consumer
 	mu        sync.Mutex
 }
 
 func NewClient(conf *common.RmqConfig) (*RmqClient, error) {
-	conn := internal.NewConn(conf)
+	conn := connection.NewConn(conf)
 	client := &RmqClient{
 		conf:      conf,
 		conn:      conn,
-		chanPool:  internal.NewPool(internal.NewRmqChannelFactory(conn), 65535),
-		consumers: make(map[string]*Consumer),
+		chanPool:  pool.NewPool(connection.NewRmqChannelFactory(conn), 65535),
+		consumers: make(map[string]*consumer.Consumer),
 		mu:        sync.Mutex{},
 	}
 	return client, client.Connect()
@@ -59,8 +61,8 @@ func (client *RmqClient) Close() error {
 
 func (client *RmqClient) stopAllConsumers() error {
 	for k := range client.consumers {
-		consumer := client.consumers[k]
-		consumer.Cancel(false)
+		consumerObj := client.consumers[k]
+		consumerObj.Cancel(false)
 	}
 	clear(client.consumers)
 	return nil
@@ -184,19 +186,19 @@ func (client *RmqClient) Get(queue string, autoAck bool) (amqp.Delivery, bool, e
 }
 
 // CreateConsumer Create new consumer
-func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback DeliveryCallback) *Consumer {
+func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback consumer.DeliveryCallback) *consumer.Consumer {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	if conf.Tag == "" {
 		conf.Tag = uuid.NewString()
 	}
-	consumerObj := newConsumer(conf, callback, client.chanPool)
+	consumerObj := consumer.NewConsumer(conf, callback, client.chanPool)
 	client.consumers[conf.Tag] = consumerObj
 	return consumerObj
 }
 
 // RemoveConsumer Cancel and remove consumer
-func (client *RmqClient) RemoveConsumer(consumer *Consumer) error {
+func (client *RmqClient) RemoveConsumer(consumer *consumer.Consumer) error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
 	consumer.Cancel(false)

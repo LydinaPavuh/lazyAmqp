@@ -1,4 +1,4 @@
-package lazyAmqp
+package connection
 
 import (
 	"errors"

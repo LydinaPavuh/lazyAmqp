@@ -1,8 +1,9 @@
-package lazyAmqp
+package consumer
 
 import (
 	"fmt"
 	"github.com/LydinaPavuh/lazyAmqp/common"
+	"github.com/LydinaPavuh/lazyAmqp/connection"
 	"github.com/LydinaPavuh/signal"
 	"github.com/rabbitmq/amqp091-go"
 	"log/slog"
@@ -11,8 +12,8 @@ import (
 )
 
 type IConsumerChannelFactory interface {
-	Get() (IChannel, error)
-	Remove(channel IChannel)
+	Get() (connection.IChannel, error)
+	Remove(channel connection.IChannel)
 }
 
 type DeliveryCallback func(delivery *amqp091.Delivery)
@@ -27,7 +28,7 @@ type Consumer struct {
 	channelManager IConsumerChannelFactory
 }
 
-func newConsumer(conf common.ConsumerConf, callback DeliveryCallback, channelManager IConsumerChannelFactory) *Consumer {
+func NewConsumer(conf common.ConsumerConf, callback DeliveryCallback, channelManager IConsumerChannelFactory) *Consumer {
 	consumer := Consumer{
 		config:         conf,
 		callback:       callback,

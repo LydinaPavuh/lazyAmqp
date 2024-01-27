@@ -1,24 +1,25 @@
-package lazyAmqp
+package pool
 
 import (
 	"github.com/LydinaPavuh/lazyAmqp/common"
+	"github.com/LydinaPavuh/lazyAmqp/connection"
 	"github.com/google/uuid"
 	"log/slog"
 	"sync"
 )
 
-type channelMap map[uuid.UUID]IChannel
+type channelMap map[uuid.UUID]connection.IChannel
 
 type ChannelPool struct {
 	maxSize       uint16
-	readyChannels []IChannel
+	readyChannels []connection.IChannel
 	allChannels   channelMap
-	factory       IChannelFactory
+	factory       connection.IChannelFactory
 	r_mu          *sync.Mutex
 	a_mu          *sync.RWMutex
 }
 
-func NewPool(factory IChannelFactory, capacity uint16) *ChannelPool {
+func NewPool(factory connection.IChannelFactory, capacity uint16) *ChannelPool {
 	return &ChannelPool{
 		factory:     factory,
 		maxSize:     capacity,
@@ -28,7 +29,7 @@ func NewPool(factory IChannelFactory, capacity uint16) *ChannelPool {
 	}
 }
 
-func (pool *ChannelPool) Get() (IChannel, error) {
+func (pool *ChannelPool) Get() (connection.IChannel, error) {
 	var err error = nil
 	channel := pool.popFirstChan()
 	if channel == nil {
@@ -47,7 +48,7 @@ func (pool *ChannelPool) Get() (IChannel, error) {
 	return channel, err
 }
 
-func (pool *ChannelPool) Remove(ch IChannel) {
+func (pool *ChannelPool) Remove(ch connection.IChannel) {
 	pool.a_mu.RLock()
 	_, ok := pool.allChannels[ch.GetId()]
 	pool.a_mu.RUnlock()
@@ -59,7 +60,7 @@ func (pool *ChannelPool) Remove(ch IChannel) {
 	pool.r_mu.Unlock()
 }
 
-func (pool *ChannelPool) openNewChannel() (IChannel, error) {
+func (pool *ChannelPool) openNewChannel() (connection.IChannel, error) {
 	pool.a_mu.Lock()
 	defer pool.a_mu.Unlock()
 	if uint16(len(pool.allChannels)) >= pool.maxSize {
@@ -73,7 +74,7 @@ func (pool *ChannelPool) openNewChannel() (IChannel, error) {
 	return ch, nil
 }
 
-func (pool *ChannelPool) popFirstChan() IChannel {
+func (pool *ChannelPool) popFirstChan() connection.IChannel {
 	pool.r_mu.Lock()
 	defer pool.r_mu.Unlock()
 	if len(pool.readyChannels) == 0 {

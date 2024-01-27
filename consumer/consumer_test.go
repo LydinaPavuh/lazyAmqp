@@ -1,9 +1,9 @@
-package lazyAmqp
+package consumer
 
 import (
+	"github.com/LydinaPavuh/lazyAmqp/common"
+	"github.com/LydinaPavuh/lazyAmqp/test_data/mock"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/common"
-	"lazyAmqp/test_data/mock"
 	"testing"
 	"time"
 )
@@ -13,7 +13,7 @@ func TestConsumerSimpleReceive(t *testing.T) {
 	pooler := mock.MockedConsumerChannelFactory{ConsumerChan: make(chan amqp.Delivery)}
 	callback := func(delivery *amqp.Delivery) { delivery.Ack(false) }
 
-	consumer := newConsumer(consumerCfg, callback, &pooler)
+	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
 	if err := consumer.RunAsync(); err != nil {
 		t.Fatalf("Fail to run consumer")
@@ -41,7 +41,7 @@ func TestConsumerReconnect(t *testing.T) {
 	pooler := mock.MockedConsumerChannelFactory{ConsumerChan: make(chan amqp.Delivery)}
 	callback := func(delivery *amqp.Delivery) { delivery.Ack(false) }
 
-	consumer := newConsumer(consumerCfg, callback, &pooler)
+	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
 	if err := consumer.RunAsync(); err != nil {
 		t.Fatalf("Fail to run consumer")
@@ -81,7 +81,7 @@ func TestConsumerManyReceive(t *testing.T) {
 	pooler := mock.MockedConsumerChannelFactory{ConsumerChan: make(chan amqp.Delivery, 100)}
 	callback := func(delivery *amqp.Delivery) { delivery.Ack(false) }
 
-	consumer := newConsumer(consumerCfg, callback, &pooler)
+	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
 	if err := consumer.RunAsync(); err != nil {
 		t.Fatalf("Fail to run consumer")

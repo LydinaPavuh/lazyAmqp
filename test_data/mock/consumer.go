@@ -1,9 +1,9 @@
 package mock
 
 import (
+	"github.com/LydinaPavuh/lazyAmqp/connection"
 	"github.com/google/uuid"
 	amqp "github.com/rabbitmq/amqp091-go"
-	"lazyAmqp/internal"
 )
 
 type MockedConsumerChannelFactory struct {
@@ -31,7 +31,7 @@ func (inst *MockedAsknowledger) Reject(tag uint64, requeue bool) error {
 	return nil
 }
 
-func (factory *MockedConsumerChannelFactory) Get() (internal.IChannel, error) {
+func (factory *MockedConsumerChannelFactory) Get() (connection.IChannel, error) {
 	ch := &MockedChannel{
 		id:           uuid.Must(uuid.NewUUID()),
 		IsOpenFlag:   true,
@@ -42,4 +42,4 @@ func (factory *MockedConsumerChannelFactory) Get() (internal.IChannel, error) {
 	return ch, nil
 }
 
-func (factory *MockedConsumerChannelFactory) Remove(channel internal.IChannel) {}
+func (factory *MockedConsumerChannelFactory) Remove(channel connection.IChannel) {}
