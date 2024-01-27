@@ -23,8 +23,6 @@ type IChannel interface {
 	ExchangeDeclare(name, kind string, durable, autoDelete, internal, noWait, passive bool, args amqp.Table) error
 	ExchangeDelete(name string, ifUnused, noWait bool) error
 	PublishWithContext(ctx context.Context, exchange, key string, mandatory, immediate bool, msg amqp.Publishing) error
-	//PublishText(ctx context.Context, exchange, key string, mandatory, immediate bool, text string) error
-	//PublishJson(ctx context.Context, exchange, key string, mandatory, immediate bool, obj any) error
 	Get(queue string, autoAck bool) (amqp.Delivery, bool, error)
 	SetQos(prefetchCount int, prefetchSize int) error
 	Consume(queue, consumer string, autoAck, exclusive, noLocal, noWait bool, args amqp.Table) (<-chan amqp.Delivery, error)
