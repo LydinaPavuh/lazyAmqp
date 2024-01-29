@@ -20,6 +20,7 @@ type RmqClient struct {
 	chanPool  *pool.ChannelPool
 	consumers map[string]*consumer.Consumer
 	mu        sync.Mutex
+	ready     bool
 }
 
 func NewClient(conf *common.RmqConfig) *RmqClient {
@@ -34,8 +35,13 @@ func NewClient(conf *common.RmqConfig) *RmqClient {
 	return client
 }
 
-// Return true if connection is closed
-func (client *RmqClient) isOpen() bool {
+// IsReady Return true if client ready to consume and publish messages
+func (client *RmqClient) IsReady() bool {
+	return client.ready
+}
+
+// ConnectionIsOpen Return true if connection is open in current time
+func (client *RmqClient) ConnectionIsOpen() bool {
 	return !client.conn.IsOpen()
 }
 
