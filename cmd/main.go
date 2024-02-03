@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/LydinaPavuh/lazyAmqp"
-	"github.com/LydinaPavuh/lazyAmqp/common"
+	common "github.com/LydinaPavuh/lazyAmqp/common"
 	amqp "github.com/rabbitmq/amqp091-go"
 	"time"
 )

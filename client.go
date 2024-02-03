@@ -49,7 +49,11 @@ func (client *RmqClient) ConnectionIsOpen() bool {
 func (client *RmqClient) Connect() error {
 	client.mu.Lock()
 	defer client.mu.Unlock()
-	return client.conn.Open()
+	if err := client.conn.Open(); err != nil {
+		return err
+	}
+	client.ready = true
+	return nil
 }
 
 // Close cancel all consumers and close active connections
@@ -62,7 +66,11 @@ func (client *RmqClient) Close() error {
 	if err := client.chanPool.Discard(); err != nil {
 		return err
 	}
-	return client.conn.Close()
+	if err := client.conn.Close(); err != nil {
+		return err
+	}
+	client.ready = false
+	return nil
 }
 
 func (client *RmqClient) stopAllConsumers() error {
