@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"context"
 	"fmt"
 	"github.com/LydinaPavuh/lazyAmqp/common"
 	"github.com/LydinaPavuh/lazyAmqp/connection"
@@ -160,6 +161,9 @@ func (consumer *Consumer) cancel() {
 	if consumer.mustClose.IsRaised() {
 		return
 	}
-	consumer.mustClose.Raise()
+
+	if err := consumer.mustClose.Raise(context.Background()); err != nil {
+		slog.Error("Consumer cancel fail", "error", err)
+	}
 	return
 }

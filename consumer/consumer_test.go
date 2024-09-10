@@ -4,36 +4,30 @@ import (
 	"github.com/LydinaPavuh/lazyAmqp/common"
 	"github.com/LydinaPavuh/lazyAmqp/test_data/mock"
 	amqp "github.com/rabbitmq/amqp091-go"
+	"github.com/stretchr/testify/assert"
 	"testing"
 	"time"
 )
 
 func TestConsumerSimpleReceive(t *testing.T) {
 	consumerCfg := common.ConsumerConf{Tag: "test", Queue: "test"}
+
 	pooler := mock.MockedConsumerChannelFactory{ConsumerChan: make(chan amqp.Delivery)}
 	callback := func(delivery *amqp.Delivery) { delivery.Ack(false) }
 
 	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
-	if err := consumer.RunAsync(); err != nil {
-		t.Fatalf("Fail to run consumer")
-	}
-	if !consumer.IsRunning() {
-		t.Fatalf("Consumer is not running")
-	}
+	assert.NoError(t, consumer.RunAsync())
+	assert.True(t, consumer.IsRunning(), "Consumer is not running")
 
 	asknowleger := &mock.MockedAsknowledger{}
 	pooler.ConsumerChan <- amqp.Delivery{Acknowledger: asknowleger}
 
-	if !asknowleger.Ascked {
-		t.Fatalf("Message not been received on consumer")
-	}
+	assert.True(t, asknowleger.Ascked, "Message not been received on consumer")
 
 	consumer.Cancel(false)
 
-	if consumer.IsRunning() {
-		t.Fatalf("Fail to cancel consumer")
-	}
+	assert.False(t, consumer.IsRunning(), "Fail to cancel consumer")
 }
 
 func TestConsumerReconnect(t *testing.T) {
@@ -43,19 +37,13 @@ func TestConsumerReconnect(t *testing.T) {
 
 	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
-	if err := consumer.RunAsync(); err != nil {
-		t.Fatalf("Fail to run consumer")
-	}
-	if !consumer.IsRunning() {
-		t.Fatalf("Consumer is not running")
-	}
+	assert.NoError(t, consumer.RunAsync())
+	assert.True(t, consumer.IsRunning(), "Consumer is not running")
 
 	asknowleger := &mock.MockedAsknowledger{}
 	pooler.ConsumerChan <- amqp.Delivery{Acknowledger: asknowleger}
 
-	if !asknowleger.Ascked {
-		t.Fatalf("Message not been received on consumer")
-	}
+	assert.True(t, asknowleger.Ascked, "Message not been received on consumer")
 
 	// delivery channel close, simulate broken connection
 	close(pooler.ConsumerChan)
@@ -65,15 +53,10 @@ func TestConsumerReconnect(t *testing.T) {
 	asknowleger = &mock.MockedAsknowledger{}
 	pooler.ConsumerChan <- amqp.Delivery{Acknowledger: asknowleger}
 
-	if !asknowleger.Ascked {
-		t.Fatalf("Message not been received on consumer")
-	}
+	assert.True(t, asknowleger.Ascked, "Message not been received on consumer")
 
 	consumer.Cancel(false)
-
-	if consumer.IsRunning() {
-		t.Fatalf("Fail to cancel consumer")
-	}
+	assert.False(t, consumer.IsRunning(), "Fail to cancel consumer")
 }
 
 func TestConsumerManyReceive(t *testing.T) {
@@ -83,29 +66,21 @@ func TestConsumerManyReceive(t *testing.T) {
 
 	consumer := NewConsumer(consumerCfg, callback, &pooler)
 
-	if err := consumer.RunAsync(); err != nil {
-		t.Fatalf("Fail to run consumer")
-	}
-	if !consumer.IsRunning() {
-		t.Fatalf("Consumer is not running")
-	}
+	assert.NoError(t, consumer.RunAsync())
+	assert.True(t, consumer.IsRunning(), "Consumer is not running")
 
 	var asknowlegers []*mock.MockedAsknowledger
-
-	for i := 0; i > 0; i++ {
+	for i := 0; i < 1000; i++ {
 		asknowleger := &mock.MockedAsknowledger{}
 		asknowlegers = append(asknowlegers)
 		pooler.ConsumerChan <- amqp.Delivery{Acknowledger: asknowleger}
 	}
+
 	time.Sleep(1 * time.Second)
 	for _, asknowleger := range asknowlegers {
-		if !asknowleger.Ascked {
-			t.Fatalf("Message not been received on consumer")
-		}
+		assert.True(t, asknowleger.Ascked, "Message not been received on consumer")
 	}
-	consumer.Cancel(false)
 
-	if consumer.IsRunning() {
-		t.Fatalf("Fail to cancel consumer")
-	}
+	consumer.Cancel(false)
+	assert.False(t, consumer.IsRunning(), "Fail to cancel consumer")
 }

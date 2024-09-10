@@ -39,12 +39,14 @@ func (pool *ChannelPool) Get() (connection.IChannel, error) {
 			return nil, err
 		}
 	}
+
 	if !channel.IsOpen() {
 		slog.Debug("Chanel is closed try reopen")
 		if err := pool.factory.Renew(channel); err != nil {
 			return nil, err
 		}
 	}
+
 	return channel, err
 }
 
@@ -55,6 +57,7 @@ func (pool *ChannelPool) Remove(ch connection.IChannel) {
 	if !ok {
 		panic("Unknown channel put")
 	}
+
 	pool.r_mu.Lock()
 	pool.readyChannels = append(pool.readyChannels, ch)
 	pool.r_mu.Unlock()
@@ -66,6 +69,7 @@ func (pool *ChannelPool) openNewChannel() (connection.IChannel, error) {
 	if uint16(len(pool.allChannels)) >= pool.maxSize {
 		return nil, common.PoolLimitReached
 	}
+
 	ch, err := pool.factory.New()
 	if err != nil {
 		return ch, err

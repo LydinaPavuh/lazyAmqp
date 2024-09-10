@@ -89,6 +89,7 @@ func (client *RmqClient) PublishText(ctx context.Context, exchange, key string, 
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	msg := amqp.Publishing{
 		Body:        []byte(text),
 		ContentType: common.MimeTextUtf8,
@@ -103,6 +104,7 @@ func (client *RmqClient) PublishBinary(ctx context.Context, exchange, key string
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	msg := amqp.Publishing{
 		Body:        data,
 		ContentType: common.MimeOctetStream,
@@ -136,6 +138,7 @@ func (client *RmqClient) QueueDeclare(name string, durable, autoDelete, exclusiv
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.QueueDeclare(name, durable, autoDelete, exclusive, noWait, passive, args)
 }
 
@@ -146,6 +149,7 @@ func (client *RmqClient) QueueBind(name, key, exchange string, noWait bool, args
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.QueueBind(name, key, exchange, noWait, args)
 }
 
@@ -156,6 +160,7 @@ func (client *RmqClient) QueueDelete(name string, ifUnused, ifEmpty, noWait bool
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.QueueDelete(name, ifUnused, ifEmpty, noWait)
 }
 
@@ -166,6 +171,7 @@ func (client *RmqClient) QueueUnbind(name, key, exchange string, args amqp.Table
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.QueueUnbind(name, key, exchange, args)
 }
 
@@ -176,6 +182,7 @@ func (client *RmqClient) ExchangeDeclare(name, kind string, durable, autoDelete,
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.ExchangeDeclare(name, kind, durable, autoDelete, internal, noWait, passive, args)
 }
 
@@ -186,6 +193,7 @@ func (client *RmqClient) ExchangeDelete(name string, ifUnused, noWait bool) erro
 		return err
 	}
 	defer client.chanPool.Remove(ch)
+
 	return ch.ExchangeDelete(name, ifUnused, noWait)
 }
 
@@ -199,10 +207,19 @@ func (client *RmqClient) Get(queue string, autoAck bool) (amqp.Delivery, bool, e
 	return ch.Get(queue, autoAck)
 }
 
+func (client *RmqClient) Consume(conf common.ConsumerConf, callback consumer.DeliveryCallback) (cancel func(noWait bool), err error) {
+	consumerObj := client.CreateConsumer(conf, callback)
+	if err := consumerObj.RunAsync(); err != nil {
+		return nil, err
+	}
+	return func(noWait bool) { consumerObj.Cancel(noWait) }, nil
+}
+
 // CreateConsumer Create new consumer
 func (client *RmqClient) CreateConsumer(conf common.ConsumerConf, callback consumer.DeliveryCallback) *consumer.Consumer {
 	client.mu.Lock()
 	defer client.mu.Unlock()
+
 	if conf.Tag == "" {
 		conf.Tag = uuid.NewString()
 	}
