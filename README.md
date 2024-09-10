@@ -14,6 +14,7 @@ The library provides a simple and reliable connection interface for rabbitMQ
 ```
 package main
 import (
+    "github.com/LydinaPavuh/lazyAmqp"
     "github.com/LydinaPavuh/lazyAmqp/common"
     "github.com/LydinaPavuh/lazyAmqp/connection"
 )
